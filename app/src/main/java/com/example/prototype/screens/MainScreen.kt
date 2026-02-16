@@ -46,17 +46,13 @@ fun MainScreen(
     val ecgData by viewModel.ecgData.collectAsState()
     val heartRate by viewModel.heartRate.collectAsState()
     val electrodeStatus by viewModel.electrodeStatus.collectAsState()
+    val isRecording by viewModel.isRecording.collectAsState()
+
 
     LaunchedEffect(Unit) {
         onRequestPermissions()
         onEnableBluetooth()
     }
-//    // Отладочная информация
-//    LaunchedEffect(ecgData.size) {
-//        if (ecgData.isNotEmpty()) {
-//            println("DEBUG: EcgData size: ${ecgData.size}, last: ${ecgData.lastOrNull()}")
-//        }
-//    }
 
     Scaffold { paddingValues ->
         Column(
@@ -77,36 +73,6 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-//            // Отладочная карточка
-//            Card(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .padding(bottom = 8.dp),
-//                elevation = androidx.compose.material3.CardDefaults.cardElevation(2.dp)
-//            ) {
-//                Column(
-//                    modifier = Modifier.padding(8.dp)
-//                ) {
-//                    Text(
-//                        text = "Отладочная информация",
-//                        fontSize = 12.sp,
-//                        fontWeight = FontWeight.Bold,
-//                        color = Color.Gray
-//                    )
-//                    Text(
-//                        text = "Точек ЭКГ: ${ecgData.size}",
-//                        fontSize = 10.sp
-//                    )
-//                    Text(
-//                        text = "Последнее значение: ${ecgData.lastOrNull()}",
-//                        fontSize = 10.sp
-//                    )
-//                    Text(
-//                        text = "Пульс: $heartRate",
-//                        fontSize = 10.sp
-//                    )
-//                }
-//            }
 
             // График ЭКГ
             Card(
@@ -129,75 +95,10 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-//            EcgStatistics(
-//                heartRate = heartRate,
-//                dataPoints = ecgData.size,
-//                electrodeStatus = electrodeStatus
-//            )
         }
     }
 }
 
-//@Composable
-//fun EcgStatistics(
-//    heartRate: Int,
-//    dataPoints: Int,
-//    electrodeStatus: String,
-//    modifier: Modifier = Modifier
-//) {
-//    Card(
-//        modifier = modifier.fillMaxWidth(),
-//        elevation = androidx.compose.material3.CardDefaults.cardElevation(4.dp)
-//    ) {
-//        Column(
-//            modifier = Modifier.padding(16.dp)
-//        ) {
-//            Text(
-//                text = "Статистика ЭКГ",
-//                fontSize = 18.sp,
-//                fontWeight = FontWeight.Bold,
-//                modifier = Modifier.padding(bottom = 12.dp)
-//            )
-//
-//            Row(
-//                modifier = Modifier.fillMaxWidth(),
-//                horizontalArrangement = Arrangement.SpaceBetween
-//            ) {
-//                Column(
-//                    horizontalAlignment = Alignment.CenterHorizontally
-//                ) {
-//                    Text(
-//                        text = heartRate.toString(),
-//                        fontSize = 24.sp,
-//                        fontWeight = FontWeight.Bold,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                    Text(
-//                        text = "Пульс (уд/мин)",
-//                        fontSize = 12.sp,
-//                        color = Color.Gray
-//                    )
-//                }
-//
-//                Column(
-//                    horizontalAlignment = Alignment.CenterHorizontally
-//                ) {
-//                    Text(
-//                        text = if (electrodeStatus == "Норма") "✓" else "⚠",
-//                        fontSize = 24.sp,
-//                        fontWeight = FontWeight.Bold,
-//                        color = if (electrodeStatus == "Норма") Color.Green else Color.Red
-//                    )
-//                    Text(
-//                        text = "Контакты",
-//                        fontSize = 12.sp,
-//                        color = Color.Gray
-//                    )
-//                }
-//            }
-//        }
-//    }
-//}
 
 @Composable
 fun ConnectionSection(

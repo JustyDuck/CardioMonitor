@@ -170,10 +170,7 @@ private fun DrawScope.drawTextWithCanvas(
     color: Color,
     topLeft: Offset
 ) {
-    // Простой способ отрисовки текста на Canvas
-    // В реальном приложении можно использовать drawIntoCanvas или NativeCanvas
-    // Для простоты здесь используем тот же подход, что и в предыдущем коде
-    // (Это ограничение Compose Canvas - для текста лучше использовать Text комопнент)
+
 }
 
 private fun DrawScope.drawGrid(

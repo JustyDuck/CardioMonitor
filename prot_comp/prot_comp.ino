@@ -9,6 +9,10 @@
 #define SERVICE_UUID "0000FFE0-0000-1000-8000-00805F9B34FB"
 #define CHARACTERISTIC_UUID "0000FFE1-0000-1000-8000-00805F9B34FB"
 
+// Пины AD8232
+#define LO_PLUS 5     // LO+
+#define LO_MINUS 17   // LO-
+#define ECG_OUTPUT 4  // OUTPUT ЭКГ
 
 // Датчик BME280
 Adafruit_BME280 bme;
@@ -19,10 +23,6 @@ BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-// Пины AD8232
-#define LO_PLUS 5     // LO+
-#define LO_MINUS 17   // LO-
-#define ECG_OUTPUT 4  // OUTPUT ЭКГ
 
 // Переменные для ЭКГ
 const int ECG_BUFFER_SIZE = 100;
@@ -168,7 +168,7 @@ void loop() {
 
       if (electrodeContactGood){
         char ecgString[30];
-        sprintf(ecgString, "ECG:%d,PULSE:%d", ecgValue, calculatedPulse);
+        sprintf(ecgString, "RAWECG:%d,FILECG:%d,PULSE:%d", rawEcg , ecgValue, calculatedPulse);
         //Отправка данных
         pCharacteristic->setValue(ecgString);
         pCharacteristic->notify();
@@ -202,6 +202,12 @@ void loop() {
 }
 
 
+float exponentialFilter(float newValue) {
+  static float filteredValue = 0;
+  filteredValue += (newValue - filteredValue) / 10 * 7;  // Коэффициент сглаживания
+  return filteredValue;
+}
+
 // Инициализация буферов
 void initializeEcgProcessing() {
   // Инициализация буферов
@@ -214,6 +220,7 @@ void initializeEcgProcessing() {
   // Калибровка порога обнаружения
   calibrateDetectionThreshold();
 }
+
 
 void calibrateDetectionThreshold() {
   Serial.println("Калибровка порога обнаружения ЭКГ...");
@@ -233,11 +240,6 @@ void calibrateDetectionThreshold() {
   Serial.println(detectionThreshold);
 }
 
-float exponentialFilter(float newValue) {
-  static float filteredValue = 0;
-  filteredValue += (newValue - filteredValue) / 10 * 7;  // Коэффициент сглаживания
-  return filteredValue;
-}
 
 void processEcgData() {
   if (millis() - lastEcgProcess < ECG_PROCESS_INTERVAL) {
@@ -259,24 +261,6 @@ void processEcgData() {
   // Расчет пульса
   calculatePulse();
 
-}
-
-bool checkElectrodeContact() {
-    // Проверяем оба электрода
-    bool loPlusGood = digitalRead(LO_PLUS) == 0;
-    bool loMinusGood = digitalRead(LO_MINUS) == 0;
-    
-    // Оба электрода должны иметь хороший контакт
-    return loPlusGood && loMinusGood;
-}
-
-void handlePoorSignal() {
-    // Теперь статус отправляется отдельно
-    if (deviceConnected) {
-        pCharacteristic->setValue("STATUS:POOR");
-        pCharacteristic->notify();
-    }
-    Serial.println("Ошибка: плохой контакт электродов");
 }
 
 void updateEcgBuffers(int ecgValue) {
@@ -318,3 +302,24 @@ void calculatePulse() {
     lastPulseCalculation = millis();
   }
 }
+
+bool checkElectrodeContact() {
+    // Проверяем оба электрода
+    bool loPlusGood = digitalRead(LO_PLUS) == 0;
+    bool loMinusGood = digitalRead(LO_MINUS) == 0;
+    
+    // Оба электрода должны иметь хороший контакт
+    return loPlusGood && loMinusGood;
+}
+
+void handlePoorSignal() {
+    // Теперь статус отправляется отдельно
+    if (deviceConnected) {
+        pCharacteristic->setValue("STATUS:POOR");
+        pCharacteristic->notify();
+    }
+    Serial.println("Ошибка: плохой контакт электродов");
+}
+
+
+

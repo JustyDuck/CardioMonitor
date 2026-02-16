@@ -1,14 +1,13 @@
 package com.example.prototype.bluetooth
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
-import android.os.ParcelUuid
 import android.util.Log
-import androidx.annotation.RequiresPermission
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.*
 
@@ -41,8 +40,22 @@ class BleManager(private val context: Context) {
     private val _weatherData = MutableStateFlow(Triple(0f, 0f, 0f))
     val weatherData: StateFlow<Triple<Float, Float, Float>> = _weatherData
 
-    private val _ecgData = MutableStateFlow<List<Int>>(emptyList())
-    val ecgData: StateFlow<List<Int>> = _ecgData
+    private val _rawEcgData = MutableStateFlow<List<Int>>(emptyList())
+    val rawEcgData: StateFlow<List<Int>> = _rawEcgData
+
+    private val _filEcgData = MutableStateFlow<List<Int>>(emptyList())
+    val ecgData: StateFlow<List<Int>> = _filEcgData
+
+    private val _newEcgPoint = MutableSharedFlow<Pair<Int, Int>>(extraBufferCapacity = 64)
+    val newEcgPoint: SharedFlow<Pair<Int, Int>> = _newEcgPoint
+
+    private val _newHeartRate = MutableSharedFlow<Int>(extraBufferCapacity = 10)
+    val newHeartRate: SharedFlow<Int> = _newHeartRate
+
+    private val _newWeatherData = MutableSharedFlow<Triple<Float, Float, Float>>(extraBufferCapacity = 5)
+    val newWeatherData: SharedFlow<Triple<Float, Float, Float>> = _newWeatherData
+
+
 
     private val _heartRate = MutableStateFlow(0)
     val heartRate: StateFlow<Int> = _heartRate
@@ -352,11 +365,8 @@ class BleManager(private val context: Context) {
                 cleanString.startsWith("TEMP:") -> {
                     parseWeatherData(cleanString)
                 }
-                cleanString.startsWith("ECG:") -> {
+                cleanString.startsWith("RAWECG:") -> {
                     parseEcgData(cleanString)
-                    if (_electrodeStatus.value != "Норма") {
-                        _electrodeStatus.value = "Норма"
-                    }
                 }
                 cleanString.startsWith("STATUS:") -> {
                     parseStatusData(cleanString)
@@ -392,12 +402,14 @@ class BleManager(private val context: Context) {
             }
         }
         _weatherData.value = Triple(temp, hum, pres)
-        Log.d("BleManager", "Погода: $temp°C, $hum%, ${pres}hPa")
+        _newWeatherData.tryEmit(Triple(temp, hum, pres))
+
     }
 
     private fun parseEcgData(dataString: String) {
         val pairs = dataString.split(",")
-        var ecgValue = 0
+        var rawValue = 0
+        var filteredValue = 0
         var pulse = 0
 
         pairs.forEach { pair ->
@@ -405,27 +417,32 @@ class BleManager(private val context: Context) {
             if (keyValue.size == 2) {
                 val key = keyValue[0].trim()
                 val value = keyValue[1].trim()
-
                 when (key) {
-                    "ECG" -> {
-                        ecgValue = value.toIntOrNull() ?: 0
-                        val currentList = _ecgData.value.toMutableList()
-
-                        if (currentList.size > 1000) {
-                            currentList.removeAt(0)
-                        }
-
-                        currentList.add(ecgValue)
-                        _ecgData.value = currentList
-                    }
-                    "PULSE" -> {
-                        pulse = value.toIntOrNull() ?: 0
-                        _heartRate.value = pulse
-                    }
+                    "RAWECG" -> rawValue = value.toIntOrNull() ?: 0
+                    "FILECG" -> filteredValue = value.toIntOrNull() ?: 0
+                    "PULSE" -> pulse = value.toIntOrNull() ?: 0
                 }
             }
         }
-        Log.d("BleManager", "ЭКГ: $ecgValue, Пульс: $pulse")
+
+        updateList(_rawEcgData, rawValue)
+        updateList(_filEcgData, filteredValue)
+
+        _newEcgPoint.tryEmit(rawValue to filteredValue)
+
+        if (pulse != 0) {
+            _heartRate.value = pulse
+            _newHeartRate.tryEmit(pulse)
+        }
+    }
+
+    private fun updateList(stateFlow: MutableStateFlow<List<Int>>, newValue: Int) {
+        val currentList = stateFlow.value.toMutableList()
+        if (currentList.size >= 1000) {
+            currentList.removeAt(0)
+        }
+        currentList.add(newValue)
+        stateFlow.value = currentList
     }
 
     private fun parseStatusData(dataString: String) {
@@ -458,6 +475,7 @@ class BleManager(private val context: Context) {
     }
 
     fun clearEcgData() {
-        _ecgData.value = emptyList()
+        _rawEcgData.value = emptyList()
+        _filEcgData.value = emptyList()
     }
 }
