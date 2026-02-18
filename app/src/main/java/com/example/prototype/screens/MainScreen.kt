@@ -46,7 +46,6 @@ fun MainScreen(
     val ecgData by viewModel.ecgData.collectAsState()
     val heartRate by viewModel.heartRate.collectAsState()
     val electrodeStatus by viewModel.electrodeStatus.collectAsState()
-    val isRecording by viewModel.isRecording.collectAsState()
 
 
     LaunchedEffect(Unit) {
@@ -72,6 +71,18 @@ fun MainScreen(
             ConnectionSection(connectionState, viewModel, onRequestPermissions)
 
             Spacer(modifier = Modifier.height(24.dp))
+
+
+            val isRecording by viewModel.isRecording.collectAsState()
+            RecordingSection(
+                isRecording = isRecording,
+                connectionState = connectionState,
+                onStartRecording = { viewModel.startRecording() },
+                onStopRecording = { viewModel.stopRecording() },
+                modifier = Modifier.padding(vertical = 8.dp) // небольшой отступ
+            )
+
+            Spacer(modifier = Modifier.height(16.dp)) // разделитель
 
 
             // График ЭКГ
@@ -167,6 +178,50 @@ fun ConnectionSection(
         }
     }
 }
+
+@Composable
+fun RecordingSection(
+    isRecording: Boolean,
+    connectionState: BleManager.ConnectionState,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = if (isRecording) "Идёт запись сеанса..." else "Запись не активна",
+                color = if (isRecording) Color.Green else Color.Gray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(
+                    onClick = onStartRecording,
+                    enabled = !isRecording && connectionState == BleManager.ConnectionState.CONNECTED
+                ) {
+                    Text("Начать запись")
+                }
+                Button(
+                    onClick = onStopRecording,
+                    enabled = isRecording
+                ) {
+                    Text("Остановить запись")
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun WeatherSection(weatherData: Triple<Float, Float, Float>) {

@@ -102,7 +102,15 @@ fun HomeScreen(
                     )
                 }
                 composable("database_screen") {
-                    DatabaseScreen()
+                    DatabaseScreen(
+                        onSessionClick = { sessionId ->
+                            navController.navigate("session_detail/$sessionId")
+                        }
+                    )
+                }
+                composable("session_detail/{sessionId}") { backStackEntry ->
+                    val sessionId = backStackEntry.arguments?.getString("sessionId")?.toLongOrNull() ?: 0L
+                    SessionDetailScreen(sessionId = sessionId)
                 }
             }
         }

@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import com.example.prototype.database.EcgPoint
+import com.example.prototype.database.HeartRate
+import com.example.prototype.database.WeatherData
 
 class EcgViewModel(application: Application) : AndroidViewModel(application) {
     private val bleManager = BleManager(application)
@@ -96,4 +99,9 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
     fun disconnect() {
         bleManager.disconnect()
     }
+
+
+    fun getEcgPointsForSession(sessionId: Long): Flow<List<EcgPoint>> = repository.getEcgPointsForSession(sessionId)
+    fun getHeartRatesForSession(sessionId: Long): Flow<List<HeartRate>> = repository.getHeartRatesForSession(sessionId)
+    fun getWeatherForSession(sessionId: Long): Flow<List<WeatherData>> = repository.getWeatherForSession(sessionId)
 }
