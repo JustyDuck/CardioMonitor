@@ -5,8 +5,18 @@ import kotlinx.coroutines.flow.Flow
 class Repository(private val db: AppDatabase) {
 
     // Сеансы
-    suspend fun startSession(startTime: Long, note: String? = null): Long {
-        val session = Session(startTime = startTime, note = note)
+    suspend fun startSession(
+        startTime: Long,
+        note: String? = null,
+        sessionType: String? = null,
+        plannedDurationSeconds: Int? = null
+        ): Long {
+        val session = Session(
+            startTime = startTime,
+            note = note,
+            sessionType = sessionType,
+            plannedDurationSeconds = plannedDurationSeconds
+            )
         return db.sessionDao().insertSession(session)
     }
 

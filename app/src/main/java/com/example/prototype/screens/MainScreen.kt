@@ -9,20 +9,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -74,12 +80,18 @@ fun MainScreen(
 
 
             val isRecording by viewModel.isRecording.collectAsState()
+            val sessionType by viewModel.selectedSessionType.collectAsState()
+            val plannedDurationMinutes by viewModel.plannedDurationMinutes.collectAsState()
             RecordingSection(
                 isRecording = isRecording,
                 connectionState = connectionState,
+                sessionType = sessionType,
+                onSessionTypeChange = { viewModel.setSessionType(it) },
+                plannedDurationMinutes = plannedDurationMinutes,
+                onPlannedDurationChange = { viewModel.setPlannedDuration(it) },
                 onStartRecording = { viewModel.startRecording() },
                 onStopRecording = { viewModel.stopRecording() },
-                modifier = Modifier.padding(vertical = 8.dp) // небольшой отступ
+                modifier = Modifier.padding(vertical = 8.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp)) // разделитель
@@ -183,24 +195,71 @@ fun ConnectionSection(
 fun RecordingSection(
     isRecording: Boolean,
     connectionState: BleManager.ConnectionState,
+    sessionType: String,
+    onSessionTypeChange: (String) -> Unit,
+    plannedDurationMinutes: Int,
+    onPlannedDurationChange: (Int) -> Unit,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(4.dp)
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Настройки видны только когда запись не активна
+            if (!isRecording) {
+                Text("Тип измерения", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = sessionType == "rest",
+                        onClick = { onSessionTypeChange("rest") },
+                        label = { Text("Спокойствие") }
+                    )
+                    FilterChip(
+                        selected = sessionType == "stress",
+                        onClick = { onSessionTypeChange("stress") },
+                        label = { Text("Нагрузка") }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("Длительность (минут)", fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Локальное состояние текстового поля (без делегата)
+                    val textFieldState = remember(plannedDurationMinutes) {
+                        mutableStateOf(plannedDurationMinutes.toString())
+                    }
+                    TextField(
+                        value = textFieldState.value,
+                        onValueChange = { newText ->
+                            textFieldState.value = newText
+                            val intVal = newText.toIntOrNull() ?: 0
+                            onPlannedDurationChange(intVal)
+                        },
+                        modifier = Modifier.width(80.dp),
+                        singleLine = true
+                    )
+                    Text(" мин (0 = без ограничений)", modifier = Modifier.padding(start = 8.dp))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Статус записи
             Text(
-                text = if (isRecording) "Идёт запись сеанса..." else "Запись не активна",
+                text = if (isRecording) "⏺ Идёт запись сеанса..." else "⏸ Запись не активна",
                 color = if (isRecording) Color.Green else Color.Gray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
+
+            // Кнопки управления
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -221,6 +280,8 @@ fun RecordingSection(
         }
     }
 }
+
+
 
 
 @Composable

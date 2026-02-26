@@ -9,7 +9,10 @@ data class Session(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val startTime: Long,
     var endTime: Long? = null,
-    val note: String? = null
+    val note: String? = null,
+    val sessionType: String? = null,
+    val plannedDurationSeconds: Int? = null
+
 )
 
 @Entity(

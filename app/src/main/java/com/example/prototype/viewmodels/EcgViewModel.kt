@@ -15,11 +15,18 @@ import kotlinx.coroutines.launch
 import com.example.prototype.database.EcgPoint
 import com.example.prototype.database.HeartRate
 import com.example.prototype.database.WeatherData
+import kotlinx.coroutines.delay
 
 class EcgViewModel(application: Application) : AndroidViewModel(application) {
     private val bleManager = BleManager(application)
     private val db = AppDatabase.getInstance(getApplication())
     private val repository = Repository(db)
+
+    private val _selectedSessionType = MutableStateFlow("rest") // rest / stress
+    val selectedSessionType: StateFlow<String> = _selectedSessionType
+
+    private val _plannedDurationMinutes = MutableStateFlow(0) //  0 = не ограничено
+    val plannedDurationMinutes: StateFlow<Int> = _plannedDurationMinutes
 
     val connectionState = bleManager.connectionState
     val receivedData = bleManager.receivedData
@@ -51,9 +58,31 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startRecording() {
         viewModelScope.launch {
-            val sessionId = repository.startSession(System.currentTimeMillis())
+            val plannedSec = if (_plannedDurationMinutes.value > 0)
+                _plannedDurationMinutes.value * 60
+            else
+                null
+            val sessionId = repository.startSession(
+                startTime = System.currentTimeMillis(),
+                sessionType = _selectedSessionType.value,
+                plannedDurationSeconds = plannedSec
+            )
             currentSessionId = sessionId
             _isRecording.value = true
+
+            plannedSec?.let { duration ->
+                launchTimer(duration * 1000L)
+            }
+        }
+    }
+
+    private fun launchTimer(delayMillis: Long) {
+        viewModelScope.launch {
+            delay(delayMillis)
+            // Проверяем, что запись всё ещё идёт и это та же сессия (на случай ручной остановки раньше)
+            if (_isRecording.value) {
+                stopRecording()
+            }
         }
     }
 
@@ -68,7 +97,13 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
+    fun setSessionType(type: String) {
+        _selectedSessionType.value = type
+    }
 
+    fun setPlannedDuration(minutes: Int) {
+        _plannedDurationMinutes.value = minutes
+    }
 
 
     init {
