@@ -1,6 +1,7 @@
 package com.example.prototype.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,10 +20,15 @@ import kotlin.math.min
 @Composable
 fun ZoomableEcgGraph(
     ecgValues: List<Int>,
-    timestamps: List<Long>,          // пока не используется, но можно добавить подписи позже
+    timestamps: List<Long>,
     modifier: Modifier = Modifier
 ) {
     if (ecgValues.isEmpty() || timestamps.isEmpty()) return
+
+    // Используем глобальные мин/макс для всего сигнала, чтобы вертикальный масштаб был стабильным
+    val globalMin = remember(ecgValues) { ecgValues.minOrNull() ?: 0 }
+    val globalMax = remember(ecgValues) { ecgValues.maxOrNull() ?: 1 }
+    val rangeY = (globalMax - globalMin).coerceAtLeast(1).toFloat()
 
     var scale by remember { mutableStateOf(1f) }
     var offsetX by remember { mutableStateOf(0f) }
@@ -33,15 +39,35 @@ fun ZoomableEcgGraph(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
+                // Обработка двойного нажатия для сброса масштаба и смещения
                 .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        // Изменяем масштаб
-                        scale = (scale * zoom).coerceIn(1f, 10f)
+                    detectTapGestures(
+                        onDoubleTap = {
+                            scale = 1f
+                            offsetX = 0f
+                        }
+                    )
+                }
 
-                        // Корректируем смещение: при свайпе вправо (pan.x > 0) сдвигаемся вправо
+                // Обработка жестов масштабирования и панорамирования
+                .pointerInput(Unit) {
+                    detectTransformGestures { centroid, pan, zoom, _ ->
+                        val oldScale = scale
+                        val newScale = (oldScale * zoom).coerceIn(0.1f, 10f)
+
+                        if (zoom != 1f) {
+                            val centroidX = centroid.x
+                            // Сохраняем точку под центром жеста
+                            offsetX = (offsetX + centroidX) * (newScale / oldScale) - centroidX
+                            scale = newScale
+                        } else {
+                            scale = newScale // если зума нет, просто обновляем масштаб
+                        }
+
+                        // Панорамирование
                         offsetX -= pan.x
 
-                        // Ограничиваем смещение, чтобы не уйти за пределы
+                        // Ограничение
                         val totalWidth = ecgValues.size * pointSpacing * scale
                         val maxOffsetX = max(0f, totalWidth - size.width)
                         offsetX = offsetX.coerceIn(0f, maxOffsetX)
@@ -52,22 +78,12 @@ fun ZoomableEcgGraph(
             val canvasHeight = size.height
             if (canvasWidth <= 0 || canvasHeight <= 0) return@Canvas
 
-            // Вычисляем видимый диапазон индексов
+            // Видимый диапазон индексов
             val startIndex = max(0, (offsetX / (pointSpacing * scale)).toInt())
             val endIndex = min(ecgValues.lastIndex, ((offsetX + canvasWidth) / (pointSpacing * scale)).toInt())
             if (startIndex > endIndex) return@Canvas
 
-            // Определяем мин/макс среди видимых точек для вертикального масштабирования
-            var minY = Int.MAX_VALUE
-            var maxY = Int.MIN_VALUE
-            for (i in startIndex..endIndex) {
-                val v = ecgValues[i]
-                if (v < minY) minY = v
-                if (v > maxY) maxY = v
-            }
-            val rangeY = (maxY - minY).coerceAtLeast(1).toFloat()
-
-            // Рисуем сетку (как в EcgGraph, но с шагом 50 пикселей)
+            // Рисуем сетку (фиксированная, не двигается)
             val gridColor = Color.Gray.copy(alpha = 0.3f)
             for (x in 0..canvasWidth.toInt() step 50) {
                 drawLine(
@@ -86,11 +102,21 @@ fun ZoomableEcgGraph(
                 )
             }
 
-            // Рисуем линию ЭКГ
+            // Центральная линия (половина высоты)
+            drawLine(
+                start = Offset(0f, canvasHeight / 2),
+                end = Offset(canvasWidth, canvasHeight / 2),
+                color = Color.Gray.copy(alpha = 0.2f),
+                strokeWidth = 1f
+            )
+
+            // Линия ЭКГ
             val path = Path()
             for (i in startIndex..endIndex) {
                 val x = i * pointSpacing * scale - offsetX
-                val y = canvasHeight - ((ecgValues[i] - minY) / rangeY * canvasHeight)
+                // Нормализуем значение относительно глобального диапазона
+                val normalized = (ecgValues[i] - globalMin) / rangeY
+                val y = canvasHeight - normalized * canvasHeight
                 if (i == startIndex) {
                     path.moveTo(x, y)
                 } else {
@@ -101,14 +127,6 @@ fun ZoomableEcgGraph(
                 path = path,
                 color = Color(0xFF1B588C),
                 style = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            )
-
-            // Опционально: можно нарисовать центральную линию (как в EcgGraph)
-            drawLine(
-                start = Offset(0f, canvasHeight / 2),
-                end = Offset(canvasWidth, canvasHeight / 2),
-                color = Color.Gray.copy(alpha = 0.2f),
-                strokeWidth = 1f
             )
         }
     }
