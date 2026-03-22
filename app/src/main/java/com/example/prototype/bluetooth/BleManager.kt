@@ -46,8 +46,11 @@ class BleManager(private val context: Context) {
     private val _filEcgData = MutableStateFlow<List<Int>>(emptyList())
     val ecgData: StateFlow<List<Int>> = _filEcgData
 
-    private val _newEcgPoint = MutableSharedFlow<Pair<Int, Int>>(extraBufferCapacity = 64)
-    val newEcgPoint: SharedFlow<Pair<Int, Int>> = _newEcgPoint
+    private val _qrsPointData = MutableStateFlow<List<Int>>(emptyList())
+    val qrsPoint: StateFlow<List<Int>> = _qrsPointData
+
+    private val _newEcgSample = MutableSharedFlow<Triple<Int, Int, Int>>(replay = 64)
+    val newEcgSample: SharedFlow<Triple<Int, Int, Int>> = _newEcgSample
 
     private val _newHeartRate = MutableSharedFlow<Int>(extraBufferCapacity = 10)
     val newHeartRate: SharedFlow<Int> = _newHeartRate
@@ -411,6 +414,7 @@ class BleManager(private val context: Context) {
         var rawValue = 0
         var filteredValue = 0
         var pulse = 0
+        var qrsPointValue =0
 
         pairs.forEach { pair ->
             val keyValue = pair.split(":")
@@ -421,19 +425,24 @@ class BleManager(private val context: Context) {
                     "RAWECG" -> rawValue = value.toIntOrNull() ?: 0
                     "FILECG" -> filteredValue = value.toIntOrNull() ?: 0
                     "PULSE" -> pulse = value.toIntOrNull() ?: 0
+                    "QRS" -> qrsPointValue = value.toIntOrNull() ?:0
                 }
             }
         }
 
         updateList(_rawEcgData, rawValue)
         updateList(_filEcgData, filteredValue)
+        updateList(_qrsPointData, qrsPointValue)
 
-        _newEcgPoint.tryEmit(rawValue to filteredValue)
+        _newEcgSample.tryEmit(Triple(rawValue, filteredValue, qrsPointValue))
 
         if (pulse != 0) {
             _heartRate.value = pulse
             _newHeartRate.tryEmit(pulse)
         }
+
+        Log.d("BleManager", "Parsed: raw=$rawValue, filtered=$filteredValue, pulse=$pulse, qrs=$qrsPointValue")
+        Log.d("BleManager", "Emitted to newEcgSample")
     }
 
     private fun updateList(stateFlow: MutableStateFlow<List<Int>>, newValue: Int) {

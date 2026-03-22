@@ -29,7 +29,8 @@ data class EcgPoint(
     val sessionId: Long,
     val timestamp: Long,
     val rawValue: Int,
-    val filteredValue: Int
+    val filteredValue: Int,
+    val qrsPoint: Int
 )
 
 @Entity(

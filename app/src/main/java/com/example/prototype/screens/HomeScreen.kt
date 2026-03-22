@@ -1,5 +1,7 @@
 package com.example.prototype.screens
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +27,7 @@ import com.example.prototype.viewmodels.EcgViewModel
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun HomeScreen(
     onRequestPermissions: () -> Unit = {},
@@ -33,7 +36,7 @@ fun HomeScreen(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val viewModel: EcgViewModel = viewModel()
+//    val viewModel: EcgViewModel = viewModel()
 
     Scaffold(
         topBar = {

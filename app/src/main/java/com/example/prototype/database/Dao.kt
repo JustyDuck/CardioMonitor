@@ -15,6 +15,9 @@ interface SessionDao {
 
     @Query("UPDATE sessions SET endTime = :endTime WHERE id = :sessionId")
     suspend fun updateSessionEndTime(sessionId: Long, endTime: Long)
+
+    @Query("SELECT * FROM sessions WHERE id = :id")
+    fun getSessionById(id: Long): Flow<Session>
 }
 
 
@@ -48,4 +51,5 @@ interface WeatherDataDao {
     @Query("SELECT * FROM weather_data WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     fun getWeatherForSession(sessionId: Long): Flow<List<WeatherData>>
 }
+
 

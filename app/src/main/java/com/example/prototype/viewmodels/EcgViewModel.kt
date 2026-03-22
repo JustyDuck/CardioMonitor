@@ -1,6 +1,9 @@
 package com.example.prototype.viewmodels
 
 import android.app.Application
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.prototype.bluetooth.BleManager
@@ -15,7 +18,15 @@ import kotlinx.coroutines.launch
 import com.example.prototype.database.EcgPoint
 import com.example.prototype.database.HeartRate
 import com.example.prototype.database.WeatherData
+import com.example.prototype.export.ExportFormat
+import com.example.prototype.export.ExportManager
+import com.example.prototype.export.ExportResult
+import com.example.prototype.export.ExportType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.firstOrNull
+
 
 class EcgViewModel(application: Application) : AndroidViewModel(application) {
     private val bleManager = BleManager(application)
@@ -28,6 +39,10 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
     private val _plannedDurationMinutes = MutableStateFlow(0) //  0 = не ограничено
     val plannedDurationMinutes: StateFlow<Int> = _plannedDurationMinutes
 
+    private val _exportResultState = MutableStateFlow<ExportResult?>(null)
+    val exportResultState: StateFlow<ExportResult?> = _exportResultState
+
+    private val exportManager = ExportManager(getApplication(), repository)
     val connectionState = bleManager.connectionState
     val receivedData = bleManager.receivedData
     val weatherData = bleManager.weatherData
@@ -44,15 +59,51 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
     val sessions: Flow<List<Session>> = repository.getAllSessions()
 
     init {
+        //Сохранение экг данных
         viewModelScope.launch {
-            // Подписка на новые точки ЭКГ (после доработки BleManager)
-            bleManager.newEcgPoint.collect { (raw, filtered) ->
-                if (_isRecording.value) {
-                    currentSessionId?.let { sessionId ->
-                        repository.saveEcgPoint(sessionId, System.currentTimeMillis(), raw, filtered)
+            try {
+                bleManager.newEcgSample.collect { (raw, filtered, qrs) ->
+                    Log.d("EcgViewModel", "Sample received: raw=$raw, filtered=$filtered, qrs=$qrs, isRecording=${_isRecording.value}, sessionId=$currentSessionId")
+                    if (_isRecording.value) {
+                        currentSessionId?.let { sessionId ->
+                            repository.saveEcgPoint(sessionId, System.currentTimeMillis(), raw, filtered, qrs)
+                        }
                     }
                 }
+            } catch (e: Exception) {
+
             }
+        }
+
+        viewModelScope.launch {
+            try {
+                bleManager.newHeartRate.collect { pulse ->
+                    if (_isRecording.value) {
+                        currentSessionId?.let { sessionID ->
+                            repository.saveHeartRate(sessionID, System.currentTimeMillis(), pulse)
+                        }
+                    }
+                }
+            } catch (e:Exception){
+
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                bleManager.newWeatherData.collect{(temp, hum, pres)->
+                    if (_isRecording.value){
+                        currentSessionId?.let{ sessionID ->
+                            repository.saveWeatherData(sessionID, System.currentTimeMillis(), temp, hum, pres)
+
+                        }
+                    }
+                }
+
+            }catch (e:Exception){
+
+            }
+
         }
     }
 
@@ -67,12 +118,14 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
                 sessionType = _selectedSessionType.value,
                 plannedDurationSeconds = plannedSec
             )
+            Log.d("EcgViewModel", "Session started with id $sessionId, isRecording set to true")
             currentSessionId = sessionId
             _isRecording.value = true
 
             plannedSec?.let { duration ->
                 launchTimer(duration * 1000L)
             }
+
         }
     }
 
@@ -139,4 +192,33 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
     fun getEcgPointsForSession(sessionId: Long): Flow<List<EcgPoint>> = repository.getEcgPointsForSession(sessionId)
     fun getHeartRatesForSession(sessionId: Long): Flow<List<HeartRate>> = repository.getHeartRatesForSession(sessionId)
     fun getWeatherForSession(sessionId: Long): Flow<List<WeatherData>> = repository.getWeatherForSession(sessionId)
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    fun exportSession(sessionId: Long, format: ExportFormat, type: ExportType) {
+        viewModelScope.launch {
+            val session = repository.getSessionById(sessionId).firstOrNull()
+            if (session == null) {
+                _exportResultState.value = ExportResult.Error("Сессия не найдена")
+                return@launch
+            }
+            val metadata = mapOf(
+                "Session ID" to session.id.toString(),
+                "Start time" to session.startTime.toString(),
+                "End time" to (session.endTime?.toString() ?: "null"),
+                "Type" to (session.sessionType ?: "unknown"),
+                "Planned duration" to (session.plannedDurationSeconds?.toString() ?: "none")
+            )
+            val result = exportManager.export(sessionId, format, type, metadata)
+            _exportResultState.value = result
+        }
+    }
+
+    fun clearExportResult() {
+        viewModelScope.launch {
+            _exportResultState.value = null
+        }
+    }
+
+
+
 }

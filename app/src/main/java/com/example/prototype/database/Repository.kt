@@ -1,5 +1,6 @@
 package com.example.prototype.database
 
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
 
 class Repository(private val db: AppDatabase) {
@@ -27,15 +28,21 @@ class Repository(private val db: AppDatabase) {
     fun getAllSessions(): Flow<List<Session>> = db.sessionDao().getAllSessions()
 
     // Точки ЭКГ
-    suspend fun saveEcgPoint(sessionId: Long, timestamp: Long, rawValue: Int, filteredValue: Int) {
-        db.ecgPointDao().insertEcgPoint(
-            EcgPoint(
-                sessionId = sessionId,
-                timestamp = timestamp,
-                rawValue = rawValue,
-                filteredValue = filteredValue
+    suspend fun saveEcgPoint(sessionId: Long, timestamp: Long, rawValue: Int, filteredValue: Int, qrsPoint: Int) {
+        try {
+            db.ecgPointDao().insertEcgPoint(
+                EcgPoint(
+                    sessionId = sessionId,
+                    timestamp = timestamp,
+                    rawValue = rawValue,
+                    filteredValue = filteredValue,
+                    qrsPoint = qrsPoint
+                )
             )
-        )
+            Log.d("Repository", "Saved ECG point: session=$sessionId, raw=$rawValue")
+        } catch (e: Exception) {
+            Log.e("Repository", "Error saving ECG point", e)
+        }
     }
 
     // Пульс
@@ -60,4 +67,6 @@ class Repository(private val db: AppDatabase) {
     fun getEcgPointsForSession(sessionId: Long): Flow<List<EcgPoint>> = db.ecgPointDao().getEcgPointsForSession(sessionId)
     fun getHeartRatesForSession(sessionId: Long): Flow<List<HeartRate>> = db.heartRateDao().getHeartRatesForSession(sessionId)
     fun getWeatherForSession(sessionId: Long): Flow<List<WeatherData>> = db.weatherDataDao().getWeatherForSession(sessionId)
+
+    fun getSessionById(id: Long): Flow<Session> = db.sessionDao().getSessionById(id)
 }
