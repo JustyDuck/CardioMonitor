@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.prototype.analysis.EcgAnalyzer
 import com.example.prototype.bluetooth.BleManager
 import com.example.prototype.database.AppDatabase
 import com.example.prototype.database.Repository
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import com.example.prototype.database.EcgPoint
 import com.example.prototype.database.HeartRate
+import com.example.prototype.database.SessionAnalysis
 import com.example.prototype.database.WeatherData
 import com.example.prototype.export.ExportFormat
 import com.example.prototype.export.ExportManager
@@ -141,8 +143,12 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stopRecording() {
         viewModelScope.launch {
-            currentSessionId?.let { sessionId ->
+            val sessionId = currentSessionId
+            if (sessionId != null) {
                 repository.finishSession(sessionId, System.currentTimeMillis())
+                // Запускаем анализ в фоне
+                val analyzer = EcgAnalyzer(repository)
+                analyzer.analyze(sessionId)
             }
             currentSessionId = null
             _isRecording.value = false
@@ -219,6 +225,15 @@ class EcgViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun getSessionAnalysis(sessionId: Long): Flow<SessionAnalysis?> = repository.getSessionAnalysis(sessionId)
+
+
+    fun reanalyzeSession(sessionId: Long) {
+        viewModelScope.launch {
+            val analyzer = EcgAnalyzer(repository)
+            analyzer.analyze(sessionId)
+        }
+    }
 
 
 }

@@ -29,7 +29,8 @@ class DataCollector(private val repository: Repository) {
         var weatherIndex = 0
         val result = mutableListOf<RowData>()
 
-        for (ecg in sortedEcg) {
+        for ((index, ecg) in sortedEcg.withIndex()) {
+
             // Ищем последний пульс, не превышающий время ecg
             while (hrIndex < sortedHr.size - 1 && sortedHr[hrIndex + 1].timestamp <= ecg.timestamp) {
                 hrIndex++
@@ -44,7 +45,7 @@ class DataCollector(private val repository: Repository) {
             val currentWeather = if (sortedWeather.isNotEmpty() && sortedWeather[weatherIndex].timestamp <= ecg.timestamp)
                 sortedWeather[weatherIndex] else null
 
-            val timeSec = (ecg.timestamp - startTime) / 1000.0
+            val timeSec = index * 0.02 // шаг 20 мс
 
             result.add(
                 RowData(

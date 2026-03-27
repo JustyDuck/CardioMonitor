@@ -52,4 +52,72 @@ interface WeatherDataDao {
     fun getWeatherForSession(sessionId: Long): Flow<List<WeatherData>>
 }
 
+@Dao
+interface RRIntervalDao {
+    @Insert
+    suspend fun insert(interval: RRInterval)
+
+    @Insert
+    suspend fun insertAll(intervals: List<RRInterval>)
+
+    @Query("SELECT * FROM rr_intervals WHERE sessionId = :sessionId ORDER BY `index` ASC")
+    fun getForSession(sessionId: Long): Flow<List<RRInterval>>
+}
+
+@Dao
+interface QrsComplexDao {
+    @Insert
+    suspend fun insert(complex: QrsComplex)
+
+    @Insert
+    suspend fun insertAll(complexes: List<QrsComplex>)
+
+    @Query("SELECT * FROM qrs_complexes WHERE sessionId = :sessionId ORDER BY `index` ASC")
+    fun getForSession(sessionId: Long): Flow<List<QrsComplex>>
+}
+
+@Dao
+interface WaveAnnotationDao {
+    @Insert
+    suspend fun insert(annotation: WaveAnnotation)
+
+    @Insert
+    suspend fun insertAll(annotations: List<WaveAnnotation>)
+
+    @Query("SELECT * FROM wave_annotations WHERE sessionId = :sessionId ORDER BY complexIndex ASC, type ASC")
+    fun getForSession(sessionId: Long): Flow<List<WaveAnnotation>>
+}
+
+@Dao
+interface SessionAnalysisDao {
+    @Insert
+    suspend fun insert(analysis: SessionAnalysis)
+
+    @Update
+    suspend fun update(analysis: SessionAnalysis)
+
+    @Query("SELECT * FROM session_analysis WHERE sessionId = :sessionId")
+    fun getForSession(sessionId: Long): Flow<SessionAnalysis?>
+
+    @Query("SELECT * FROM session_analysis WHERE sessionId IN (:sessionIds)")
+    fun getForSessions(sessionIds: List<Long>): Flow<List<SessionAnalysis>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplace(analysis: SessionAnalysis)
+}
+
+@Dao
+interface AnnotationDao {
+    @Insert
+    suspend fun insert(annotation: Annotation)
+
+    @Insert
+    suspend fun insertAll(annotations: List<Annotation>)
+
+    @Query("SELECT * FROM annotations WHERE sessionId = :sessionId ORDER BY startIndex ASC")
+    fun getForSession(sessionId: Long): Flow<List<Annotation>>
+}
+
+
+
 

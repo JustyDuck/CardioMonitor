@@ -23,7 +23,7 @@ fun ZoomableEcgGraph(
     timestamps: List<Long>,
     modifier: Modifier = Modifier
 ) {
-    if (ecgValues.isEmpty() || timestamps.isEmpty()) return
+    if (ecgValues.isEmpty()) return
 
     // Используем глобальные мин/макс для всего сигнала, чтобы вертикальный масштаб был стабильным
     val globalMin = remember(ecgValues) { ecgValues.minOrNull() ?: 0 }
@@ -114,20 +114,17 @@ fun ZoomableEcgGraph(
             val path = Path()
             for (i in startIndex..endIndex) {
                 val x = i * pointSpacing * scale - offsetX
-                // Нормализуем значение относительно глобального диапазона
                 val normalized = (ecgValues[i] - globalMin) / rangeY
                 val y = canvasHeight - normalized * canvasHeight
-                if (i == startIndex) {
-                    path.moveTo(x, y)
-                } else {
-                    path.lineTo(x, y)
-                }
+                if (i == startIndex) path.moveTo(x, y) else path.lineTo(x, y)
             }
             drawPath(
-                path = path,
-                color = Color(0xFF1B588C),
-                style = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            )
+                path,
+                Color(0xFF1B588C),
+                style = Stroke(
+                    2f,
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round))
         }
     }
 }
